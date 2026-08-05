@@ -3,7 +3,7 @@
 POST /run starts a background backtest and returns its id; GET /{id} polls status,
 progress, and (when done) the metrics, equity curve, and trade log. Defaults are
 drawn from the caller's fund when the request omits them.
-"""
+//"""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
