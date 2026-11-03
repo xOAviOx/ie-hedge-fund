@@ -7,7 +7,7 @@ pipeline output. Two hard requirements from the brief:
   * **Graceful no-key mode:** with no LLM key configured, ``write_memo`` returns
     ``None`` and the run still completes — the memo is optional, never load-bearing.
 
-Default provider is Groq ``llama-3.3-70b-versatile`` via the installed ``groq``
+Default provider is Groq ``openai/gpt-oss-120b`` via the installed ``groq``
 SDK (no LangChain needed). Other providers fall back to the ``llm.py`` factory,
 which imports LangChain lazily.
 """
@@ -53,7 +53,7 @@ def _build_prompt(
     )
 
 
-def _complete_sync(prompt: str) -> str:
+def _complete_sync(prompt: str, max_tokens: int = 600, temperature: float = 0.3) -> str:
     provider = settings.llm_provider.lower()
 
     # Preferred: direct Groq SDK (installed; no LangChain dependency).
@@ -63,11 +63,13 @@ def _complete_sync(prompt: str) -> str:
         from app.engine import llm_usage
 
         client = Groq(api_key=settings.groq_api_key)
+        extra = {"reasoning_effort": settings.llm_reasoning_effort} if "gpt-oss" in settings.llm_model else {}
         resp = client.chat.completions.create(
             model=settings.llm_model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=600,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **extra,
         )
         usage = getattr(resp, "usage", None)
         if usage is not None:
@@ -81,8 +83,19 @@ def _complete_sync(prompt: str) -> str:
     # Fallback: LangChain factory (imported lazily inside get_chat_model).
     from app.engine.llm import get_chat_model
 
-    llm = get_chat_model(temperature=0.3)
+    llm = get_chat_model(temperature=temperature)
     return str(llm.invoke(prompt).content).strip()
+
+
+async def complete(prompt: str, *, max_tokens: int = 600, temperature: float = 0.3) -> Optional[str]:
+    """One best-effort LLM completion; ``None`` when no key is configured or on error."""
+    if not settings.has_any_llm_key():
+        return None
+    try:
+        return await asyncio.to_thread(_complete_sync, prompt, max_tokens, temperature)
+    except Exception as e:  # noqa: BLE001 — callers fall back to deterministic output
+        logger.warning("LLM completion failed (%s).", e)
+        return None
 
 
 async def write_memo(

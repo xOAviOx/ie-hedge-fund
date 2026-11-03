@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Info, Play } from 'lucide-react';
 
 import { useBacktest, useFund, useStartBacktest } from '@/lib/hooks';
 import { dateOnly, num, pct, signClass, tickerLabel } from '@/lib/format';
+import { PERSONA_KEYS, PERSONAS } from '@/lib/personas';
 import type { BacktestRequest } from '@/lib/types';
 import PageHeader from '@/components/PageHeader';
 import { ActionPill, Empty, ErrorState, Panel, Spinner, Stat } from '@/components/ui';
@@ -13,7 +15,17 @@ import EquityChart from '@/components/charts/EquityChart';
 const isoDaysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
 const today = () => new Date().toISOString().slice(0, 10);
 
+// useSearchParams needs a Suspense boundary in the App Router.
 export default function BacktestPage() {
+  return (
+    <Suspense>
+      <BacktestLab />
+    </Suspense>
+  );
+}
+
+function BacktestLab() {
+  const searchParams = useSearchParams();
   const fund = useFund();
   const start = useStartBacktest();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -24,6 +36,18 @@ export default function BacktestPage() {
   const [to, setTo] = useState(today());
   const [cash, setCash] = useState('1000000');
   const [step, setStep] = useState('7');
+  // Empty selection means every persona runs.
+  const [personas, setPersonas] = useState<Set<string>>(
+    () => new Set((searchParams.get('personas') ?? '').split(',').filter((k) => PERSONA_KEYS.includes(k))),
+  );
+
+  const togglePersona = (key: string) =>
+    setPersonas((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   useEffect(() => {
     if (fund.data && !universe) {
@@ -45,6 +69,7 @@ export default function BacktestPage() {
       end: to,
       initial_cash: Number(cash) || undefined,
       step_days: Number(step) || 7,
+      personas: personas.size ? PERSONA_KEYS.filter((k) => personas.has(k)) : undefined,
     };
     start.mutate(body, { onSuccess: (res) => setActiveId(res.backtest_id) });
   };
@@ -101,6 +126,26 @@ export default function BacktestPage() {
             <div>
               <label className="label mb-1.5 block">Rebalance every (days)</label>
               <input value={step} onChange={(e) => setStep(e.target.value)} inputMode="numeric" className={`${inputClass} tnum`} />
+            </div>
+            <div className="md:col-span-2">
+              <label className="label mb-1.5 block">Personas</label>
+              <div className="flex flex-wrap gap-1.5">
+                {PERSONAS.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => togglePersona(p.key)}
+                    className={`rounded border px-2 py-1 text-2xs font-medium transition-colors ${
+                      personas.has(p.key) ? 'border-accent/40 bg-accent/10 text-accent' : 'border-line text-muted hover:text-ink'
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-2xs text-muted">
+                {personas.size ? `${personas.size} of ${PERSONA_KEYS.length} personas` : 'None selected — all personas run.'}
+              </p>
             </div>
           </div>
           {start.isError && (

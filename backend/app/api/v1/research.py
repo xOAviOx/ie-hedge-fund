@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Query
 from app.api.deps import get_cache
 from app.data.cache import MarketCache
 from app.engine.pipeline import run_pipeline
+from app.engine.score import score_ticker
 
 router = APIRouter(prefix="/research", tags=["research"])
 
@@ -33,6 +34,7 @@ async def research(
         "risk": next((r for r in result.risk if r["ticker"] == t), None),
         "order": next((o for o in result.orders if o["ticker"] == t), None),
         "signals": signals,
+        "score": score_ticker(t, result.signals, result.current_prices.get(t)),
         "memo": result.memo,
         "timings": result.timings,
     }

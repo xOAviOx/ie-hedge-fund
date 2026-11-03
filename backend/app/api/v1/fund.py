@@ -18,7 +18,7 @@ from app.fund.service import run_fund
 router = APIRouter(prefix="/fund", tags=["fund"])
 
 
-def _fund_dict(f: Fund) -> dict:
+def fund_dict(f: Fund) -> dict:
     return {
         "fund_id": f.id,
         "base_currency": f.base_currency,
@@ -39,7 +39,7 @@ async def get_fund(user: str = Depends(get_current_user), session: AsyncSession 
     latest = (await session.execute(
         select(NavSnapshot).where(NavSnapshot.fund_id == user).order_by(desc(NavSnapshot.ts)).limit(1)
     )).scalar_one_or_none()
-    return {**_fund_dict(fund), "latest_nav": latest.nav if latest else round(fund.cash, 2)}
+    return {**fund_dict(fund), "latest_nav": latest.nav if latest else round(fund.cash, 2)}
 
 
 @router.get("/positions")
@@ -135,4 +135,4 @@ async def update_config(
     if cfg.base_currency is not None:
         fund.base_currency = cfg.base_currency
     await session.commit()
-    return _fund_dict(fund)
+    return fund_dict(fund)

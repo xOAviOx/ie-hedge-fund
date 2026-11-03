@@ -9,6 +9,12 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Env vars beat backend/.env in pydantic-settings, so blanking them keeps the
+# suite offline and deterministic even when a real LLM key is configured.
+for _key in ("GROQ_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "DEEPSEEK_API_KEY",
+             "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"):
+    os.environ[_key] = ""
+
 if "DATABASE_URL" not in os.environ:
     _test_db = os.path.join(tempfile.gettempdir(), "portai_test.db")
     for _suffix in ("", "-wal", "-shm"):

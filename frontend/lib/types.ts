@@ -190,6 +190,7 @@ export interface ResearchResult {
   signals: Record<string, RawSignal>;
   memo: string | null;
   timings: Record<string, number>;
+  score?: StrattonScore | null;
 }
 
 // ── risk ──────────────────────────────────────────────────────────────
@@ -307,4 +308,197 @@ export interface BacktestStatus {
   trades?: BacktestTrade[];
   benchmark?: string;
   disclosure?: string;
+}
+
+// ── stratton score ────────────────────────────────────────────────────
+export type ScoreLabel = 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
+
+export interface ScoreReason {
+  agent_id: string;
+  agent_name: string;
+  direction: Direction;
+  confidence: number;
+  reasoning: string;
+}
+
+export interface StrattonScore {
+  ticker: string;
+  score: number;
+  label: ScoreLabel;
+  net: number;
+  bull_count: number;
+  bear_count: number;
+  neutral_count: number;
+  agent_count: number;
+  analyst_score: number | null;
+  persona_score: number | null;
+  top_bullish: ScoreReason[];
+  top_bearish: ScoreReason[];
+  price: number | null;
+  as_of: string;
+}
+
+export interface ScoreBoard {
+  as_of: string;
+  scores: StrattonScore[];
+}
+
+// ── onboarding ────────────────────────────────────────────────────────
+export interface QuizQuestion {
+  id: string;
+  text: string;
+  help: string;
+  options: { label: string; points: number }[];
+}
+
+export type RiskProfileName = 'Conservative' | 'Balanced' | 'Growth' | 'Aggressive';
+
+export interface InvestorProfile {
+  risk_score: number;
+  profile: RiskProfileName;
+  summary: string;
+  mandate: {
+    active_personas: string[];
+    position_cap_pct: number;
+    universe: string[];
+    markets: 'india' | 'us' | 'both';
+    style: 'value' | 'growth' | 'momentum' | 'committee';
+  };
+  answers: Record<string, number>;
+  applied: boolean;
+  created_at: string;
+}
+
+export interface ProfileRequest {
+  answers: Record<string, number>;
+  apply?: boolean;
+}
+
+// ── model portfolios ──────────────────────────────────────────────────
+export interface PortfolioHolding {
+  ticker: string;
+  weight_pct: number;
+  direction: Direction;
+  confidence: number;
+  reasons: string[];
+}
+
+export interface ModelPortfolio {
+  id: string;
+  name: string;
+  tagline: string;
+  description: string;
+  persona_keys: string[];
+  risk_level: 'Low' | 'Medium' | 'High';
+  universe: string[];
+  holdings: PortfolioHolding[];
+  cash_weight_pct: number;
+  bullish_count: number;
+  followed: boolean;
+  followers: number;
+}
+
+export interface FollowResult {
+  id: string;
+  followed: boolean;
+  followers: number;
+}
+
+// ── health check ──────────────────────────────────────────────────────
+export interface HoldingInput {
+  ticker: string;
+  quantity: number;
+  avg_cost?: number | null;
+}
+
+export interface HealthHolding {
+  ticker: string;
+  quantity: number;
+  price: number | null;
+  currency: string;
+  value: number;
+  weight_pct: number;
+  avg_cost: number | null;
+  pnl_pct: number | null;
+  score: StrattonScore;
+}
+
+export type Severity = 'high' | 'medium' | 'low';
+export type Verdict = 'Approves' | 'Mixed' | 'Disapproves';
+
+export interface HealthReport {
+  as_of: string;
+  base_currency: 'INR';
+  total_value: number;
+  health_score: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'E';
+  holdings: HealthHolding[];
+  warnings: { severity: Severity; title: string; detail: string }[];
+  persona_verdicts: {
+    persona_key: string;
+    display_name: string;
+    bullish_weight_pct: number;
+    bearish_weight_pct: number;
+    verdict: Verdict;
+    comment: string;
+  }[];
+  sector_exposure: { sector: string; weight_pct: number }[];
+}
+
+// ── chat ──────────────────────────────────────────────────────────────
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatSource {
+  kind: 'run' | 'order' | 'position' | 'signal' | 'fund' | 'score';
+  ref: string;
+  label: string;
+  href: string | null;
+}
+
+export interface ChatResponse {
+  answer: string;
+  mode: 'llm' | 'rules';
+  sources: ChatSource[];
+  suggestions: string[];
+}
+
+// ── watchlist & alerts ────────────────────────────────────────────────
+export interface WatchlistItem {
+  ticker: string;
+  added_at: string;
+  price: number | null;
+  change_pct: number | null;
+  currency: string | null;
+}
+
+export type AlertKind = 'price_above' | 'price_below' | 'change_pct_abs' | 'score_above' | 'score_below' | 'consensus_flip';
+
+export interface AlertRule {
+  id: number;
+  ticker: string;
+  kind: AlertKind;
+  threshold: number | null;
+  active: boolean;
+  created_at: string;
+  last_triggered_at: string | null;
+  last_value: string | null;
+}
+
+export interface AlertRuleIn {
+  ticker: string;
+  kind: AlertKind;
+  threshold?: number | null;
+}
+
+export interface AlertEvent {
+  id: number;
+  rule_id: number | null;
+  ticker: string;
+  kind: AlertKind;
+  message: string;
+  ts: string;
+  read: boolean;
 }

@@ -70,13 +70,22 @@ async def apply_orders(
     *,
     fx_usdinr: float = 1.0,
     run_id: Optional[str] = None,
+    position_cap_pct: Optional[float] = None,
+    nav_base: Optional[float] = None,
 ) -> list[dict]:
     """Apply portfolio-manager orders to the ledger. Returns executed order dicts.
 
     Buys fill only up to affordable cash (FX-converted); sells are capped at held
-    shares. Every attempt (including holds / partials) is recorded as an OrderRow.
+    shares. With ``position_cap_pct`` and ``nav_base`` set, a buy also stops where
+    the position would exceed that % of NAV (base currency). Every attempt
+    (including holds / partials) is recorded as an OrderRow.
     """
     executed: list[dict] = []
+    cap_base = (
+        position_cap_pct / 100.0 * nav_base
+        if position_cap_pct is not None and nav_base and nav_base > 0
+        else None
+    )
 
     for o in orders:
         ticker = o["ticker"]
@@ -92,10 +101,14 @@ async def apply_orders(
             unit_base = price * rate
             affordable = int(math.floor(fund.cash / unit_base)) if unit_base > 0 else 0
             exec_qty = min(want_qty, affordable)
+            pos = await _get_position(session, fund.id, ticker)
+            if cap_base is not None and unit_base > 0:
+                held_base = (pos.shares if pos else 0.0) * unit_base
+                room = int(math.floor((cap_base - held_base) / unit_base))
+                exec_qty = min(exec_qty, max(0, room))
             if exec_qty > 0:
                 cost_base = exec_qty * unit_base
                 fund.cash -= cost_base
-                pos = await _get_position(session, fund.id, ticker)
                 if pos is None:
                     pos = PositionRow(fund_id=fund.id, ticker=ticker, shares=0.0,
                                       avg_cost=0.0, currency=cur)

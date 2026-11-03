@@ -146,6 +146,26 @@ def test_portfolio_manager_actions():
     assert pos["Y"]["action"] == "sell" and pos["Y"]["quantity"] == 10
 
 
+def test_portfolio_manager_scales_to_book_and_converts_fx():
+    risk = [
+        {"ticker": "TCS.NS", "signal": "bullish", "confidence": 60, "max_position_size": 25000},
+        {"ticker": "AAPL", "signal": "bullish", "confidence": 60, "max_position_size": 25000},
+    ]
+    data = {
+        "risk_adjusted_signals": risk,
+        "current_prices": {"TCS.NS": 2500.0, "AAPL": 250.0},
+        "portfolio": {
+            "cash": 1_000_000, "positions": {}, "total_value": 1_000_000,
+            "fx_to_base": {"TCS.NS": 1.0, "AAPL": 80.0}, "base_currency": "INR",
+        },
+    }
+    pos = {p["ticker"]: p for p in portfolio_manager_agent({"data": data})["data"]["portfolio_output"]["positions"]}
+    # ₹10L book -> 25% limit = ₹2.5L: 100 TCS @ ₹2,500; AAPL @ $250 = ₹20,000 -> 12 shares
+    assert pos["TCS.NS"]["quantity"] == 100
+    assert pos["AAPL"]["quantity"] == 12
+    assert "$" not in pos["AAPL"]["reasoning"] and "INR" in pos["AAPL"]["reasoning"]
+
+
 # ── full pipeline, offline ──────────────────────────────────────────
 
 

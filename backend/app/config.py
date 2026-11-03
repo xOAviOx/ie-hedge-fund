@@ -31,7 +31,10 @@ class Settings(BaseSettings):
 
     # ── LLM (used from Phase 3+). All optional — pipeline runs without a key.
     llm_provider: str = "groq"
-    llm_model: str = "llama-3.3-70b-versatile"
+    llm_model: str = "openai/gpt-oss-120b"
+    # Only sent to reasoning models (gpt-oss); without it they can spend the whole
+    # token budget thinking and return empty content.
+    llm_reasoning_effort: str = "low"
     groq_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None

@@ -14,6 +14,8 @@ from dataclasses import asdict, dataclass
 # USD per 1M tokens (input, output). Approximate list prices; extend as needed.
 # Matched by substring against the configured model name.
 _PRICING: dict[str, tuple[float, float]] = {
+    "gpt-oss-120b": (0.15, 0.75),
+    "gpt-oss-20b": (0.10, 0.50),
     "llama-3.3-70b": (0.59, 0.79),
     "llama-3.1-8b": (0.05, 0.08),
     "gpt-4o-mini": (0.15, 0.60),

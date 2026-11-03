@@ -7,7 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from './api';
-import type { BacktestRequest, FundConfigPatch } from './types';
+import type { AlertRuleIn, BacktestRequest, ChatTurn, FundConfigPatch, HoldingInput, ProfileRequest } from './types';
 
 const QUOTE_REFETCH = 60_000; // matches quote cache TTL
 
@@ -141,5 +141,121 @@ export function useBacktest(id: string | null) {
     queryFn: () => api.backtest.get(id as string),
     enabled: !!id,
     refetchInterval: (query) => (query.state.data?.status === 'running' ? 1000 : false),
+  });
+}
+
+// ── product features ──────────────────────────────────────────────────
+export const useScoreBoard = () =>
+  useQuery({ queryKey: ['score', 'board'], queryFn: () => api.score.list(), staleTime: 5 * 60_000 });
+
+export const useScore = (ticker: string, enabled = true) =>
+  useQuery({
+    queryKey: ['score', 'ticker', ticker],
+    queryFn: () => api.score.get(ticker),
+    enabled: enabled && !!ticker,
+    staleTime: 5 * 60_000,
+  });
+
+export const useQuizQuestions = () =>
+  useQuery({ queryKey: ['onboarding', 'questions'], queryFn: api.onboarding.questions, staleTime: Infinity });
+
+export const useInvestorProfile = () => useQuery({ queryKey: ['onboarding', 'profile'], queryFn: api.onboarding.profile });
+
+export function useSubmitProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ProfileRequest) => api.onboarding.submit(body),
+    onSuccess: (profile) => {
+      qc.setQueryData(['onboarding', 'profile'], profile);
+      if (profile.applied) qc.invalidateQueries({ queryKey: qk.fund });
+    },
+  });
+}
+
+export const usePortfolios = () => useQuery({ queryKey: ['portfolios'], queryFn: api.portfolios.list, staleTime: 5 * 60_000 });
+
+export const usePortfolio = (id: string) =>
+  useQuery({ queryKey: ['portfolio', id], queryFn: () => api.portfolios.get(id), enabled: !!id, staleTime: 5 * 60_000 });
+
+export function useFollowPortfolio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, follow }: { id: string; follow: boolean }) =>
+      follow ? api.portfolios.follow(id) : api.portfolios.unfollow(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['portfolios'] });
+      qc.invalidateQueries({ queryKey: ['portfolio'] });
+    },
+  });
+}
+
+export function useApplyPortfolio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.portfolios.apply(id),
+    onSuccess: (fund) => qc.setQueryData(qk.fund, fund),
+  });
+}
+
+export const useHealthSample = (enabled: boolean) =>
+  useQuery({ queryKey: ['health-check', 'sample'], queryFn: api.healthCheck.sample, enabled, staleTime: Infinity });
+
+export const useAnalyseHoldings = () =>
+  useMutation({ mutationFn: (holdings: HoldingInput[]) => api.healthCheck.analyse(holdings) });
+
+export const useChatSuggestions = () =>
+  useQuery({ queryKey: ['chat', 'suggestions'], queryFn: api.chat.suggestions, staleTime: 5 * 60_000 });
+
+export const useAskFund = () =>
+  useMutation({ mutationFn: ({ message, history }: { message: string; history: ChatTurn[] }) => api.chat.ask(message, history) });
+
+export const useWatchlist = () =>
+  useQuery({ queryKey: ['watchlist'], queryFn: api.watchlist.list, refetchInterval: QUOTE_REFETCH });
+
+export function useWatchlistMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ticker, remove }: { ticker: string; remove?: boolean }): Promise<void> => {
+      if (remove) await api.watchlist.remove(ticker);
+      else await api.watchlist.add(ticker);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['watchlist'] }),
+  });
+}
+
+export const useAlertRules = () => useQuery({ queryKey: ['alerts', 'rules'], queryFn: api.alerts.rules });
+
+export function useCreateAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AlertRuleIn) => api.alerts.create(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts', 'rules'] }),
+  });
+}
+
+export function useDeleteAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.alerts.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts', 'rules'] }),
+  });
+}
+
+export const useAlertEvents = () =>
+  useQuery({ queryKey: ['alerts', 'events'], queryFn: () => api.alerts.events(), refetchInterval: QUOTE_REFETCH });
+
+export function useCheckAlerts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.alerts.check,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts'] }),
+  });
+}
+
+export function useMarkAlertsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.alerts.markRead,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts', 'events'] }),
   });
 }

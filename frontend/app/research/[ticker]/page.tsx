@@ -10,6 +10,7 @@ import PageHeader from '@/components/PageHeader';
 import { ErrorState, Loading, Panel } from '@/components/ui';
 import PriceChart from '@/components/charts/PriceChart';
 import AgentPanel from '@/components/research/AgentPanel';
+import ScoreCard from '@/components/score/ScoreCard';
 import NewsList from '@/components/research/NewsList';
 import Fundamentals from '@/components/research/Fundamentals';
 
@@ -89,6 +90,7 @@ export default function TickerResearchPage({ params }: { params: { ticker: strin
 
         {/* Right: agent debate */}
         <div className="lg:col-span-1">
+          {research.data?.score && <ScoreCard score={research.data.score} className="mb-4" />}
           <div className="mb-2 flex items-center justify-between px-1">
             <span className="label">Agent analysis</span>
             {research.isFetching && <span className="text-2xs text-muted">running…</span>}

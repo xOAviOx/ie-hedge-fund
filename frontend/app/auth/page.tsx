@@ -19,7 +19,7 @@ export default function AuthPage() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user) router.push('/');
+    if (user) router.push('/console');
   }, [user, router]);
 
   const handleAuth = async (e: React.FormEvent) => {

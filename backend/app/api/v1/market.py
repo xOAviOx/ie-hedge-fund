@@ -18,7 +18,8 @@ def _handle(exc: Exception) -> HTTPException:
         return HTTPException(status_code=404, detail=str(exc) or "symbol not found")
     if isinstance(exc, (ProviderError, ValueError)):
         return HTTPException(status_code=502, detail=f"provider error: {exc}")
-    return HTTPException(status_code=500, detail="internal error")
+    # yfinance raises its own untyped errors when Yahoo is down; that is an upstream outage, not a bug here.
+    return HTTPException(status_code=502, detail="market data provider unavailable")
 
 
 @router.get("/quote/{symbol}")

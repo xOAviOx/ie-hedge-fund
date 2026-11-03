@@ -91,6 +91,26 @@ def _row(df: Any, col: Any, *labels: str) -> Optional[float]:
     return None
 
 
+def _reporting_fx(t: Any) -> float:
+    """Multiplier from the statement currency to the trading currency.
+
+    Yahoo reports some NSE listings (e.g. INFY.NS) in USD while quoting the price
+    in INR; without conversion P/E and P/B come out ~80x too high.
+    """
+    try:
+        info = t.info or {}
+    except Exception:
+        return 1.0
+    fin_ccy, px_ccy = info.get("financialCurrency"), info.get("currency")
+    if not fin_ccy or not px_ccy or fin_ccy == px_ccy:
+        return 1.0
+    try:
+        rate = _opt_float(_fast_get(yf.Ticker(f"{fin_ccy}{px_ccy}=X").fast_info, "last_price", "lastPrice"))
+    except Exception:
+        rate = None
+    return rate if rate and rate > 0 else 1.0
+
+
 class YFinanceAdapter:
     name = "yfinance"
 
@@ -160,9 +180,16 @@ class YFinanceAdapter:
     async def get_financials(self, symbol: str, quarters: int = 8) -> Financials:
         def _fetch() -> Financials:
             t = yf.Ticker(symbol)
-            income = getattr(t, "quarterly_income_stmt", None)
-            balance = getattr(t, "quarterly_balance_sheet", None)
-            cash = getattr(t, "quarterly_cashflow", None)
+            # Analysts and persona rules are calibrated on annual figures (P/E,
+            # ROE, FCF yield); quarterly statements would inflate P/E ~4x.
+            income = getattr(t, "income_stmt", None)
+            balance = getattr(t, "balance_sheet", None)
+            cash = getattr(t, "cashflow", None)
+            if income is None or getattr(income, "empty", True):
+                income = getattr(t, "quarterly_income_stmt", None)
+                balance = getattr(t, "quarterly_balance_sheet", None)
+                cash = getattr(t, "quarterly_cashflow", None)
+            fx = _reporting_fx(t)
             cols: list[Any] = []
             if income is not None and not getattr(income, "empty", True):
                 cols = list(income.columns)[:quarters]
@@ -182,6 +209,12 @@ class YFinanceAdapter:
                 capex = _row(cash, col, "Capital Expenditure")
                 if fcf is None and ocf is not None and capex is not None:
                     fcf = ocf + capex  # capex is negative in yfinance
+                if fx != 1.0:
+                    revenue, net_income, eps, equity, total_assets, total_liab, cur_assets, cur_liab, total_debt, ocf, fcf = (
+                        v * fx if v is not None else None
+                        for v in (revenue, net_income, eps, equity, total_assets, total_liab,
+                                  cur_assets, cur_liab, total_debt, ocf, fcf)
+                    )
                 periods.append(
                     FinancialsPeriod(
                         period=str(getattr(col, "date", lambda: col)() if hasattr(col, "date") else col),

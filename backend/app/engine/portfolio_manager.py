@@ -14,6 +14,11 @@ def portfolio_manager_agent(state: dict) -> dict:
 
     cash = portfolio.get("cash", 100000)
     existing = portfolio.get("positions", {})
+    # Risk-manager limits are calibrated on a 100k book; scale them to the real one.
+    scale = (portfolio.get("total_value") or 100000) / 100000
+    fx_to_base = portfolio.get("fx_to_base", {})
+    base_ccy = portfolio.get("base_currency")
+    ccy = f" {base_ccy}" if base_ccy else ""
     positions = []
 
     for rs in risk_signals:
@@ -35,11 +40,12 @@ def portfolio_manager_agent(state: dict) -> dict:
 
         if signal == "bullish" and conf >= 50:
             # Allocate up to max_position_size or remaining cash
-            alloc = min(max_pos, cash * 0.3)
-            qty = int(alloc / price) if price > 0 else 0
+            alloc = min(max_pos * scale, cash * 0.3)
+            unit = price * fx_to_base.get(ticker, 1.0)
+            qty = int(alloc / unit) if unit > 0 else 0
             if qty > 0:
                 action = "buy"
-                reasoning = f"Bullish conviction ({conf}%). Allocating ${alloc:,.0f} for {qty} shares at ${price:.2f}."
+                reasoning = f"Bullish conviction ({conf}%). Allocating {alloc:,.0f}{ccy} for {qty} shares at {price:.2f}."
             else:
                 action = "hold"
                 reasoning = f"Bullish signal but insufficient allocation for {ticker}."

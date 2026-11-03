@@ -176,7 +176,8 @@ class MarketCache:
 
     async def get_financials(self, symbol: str, quarters: int = 8) -> Financials:
         return await self._through(
-            "get_financials", {"symbol": symbol, "quarters": quarters},
+            # "basis" versions the key so rows cached from quarterly statements are not reused.
+            "get_financials", {"symbol": symbol, "quarters": quarters, "basis": "annual"},
             lambda: self.provider.get_financials(symbol, quarters), Financials, TTL_FINANCIALS,
         )
 

@@ -25,7 +25,7 @@ from app.notifications import telegram
 logger = logging.getLogger(__name__)
 
 
-async def _fetch_fx_usdinr(cache: Any) -> float:
+async def fetch_fx_usdinr(cache: Any) -> float:
     try:
         fx = await cache.get_fx("USDINR")
         return float(fx.rate) if fx and fx.rate else 1.0
@@ -57,20 +57,27 @@ async def run_fund(
             return {"status": "paused", "fund_id": fund_id, "run_id": None}
         universe = list(fund.universe) or list(ledger.DEFAULT_UNIVERSE)
         personas = fund.active_personas or ["all"]
-        positions = await ledger.get_positions(session, fund_id)
-        portfolio = {
-            "cash": fund.cash,
-            "positions": {p.ticker: {"shares": int(p.shares)} for p in positions if p.shares > 0},
-            "total_value": fund.cash,
-        }
+        held = [(p.ticker, p.shares, p.avg_cost) for p in await ledger.get_positions(session, fund_id) if p.shares > 0]
+        base_ccy = fund.base_currency
+        cash = fund.cash
         await session.commit()
+
+    fx_usdinr = await fetch_fx_usdinr(cache)
+    rates = {t: nav.fx_to_base(nav.currency_of(t), base_ccy, fx_usdinr) for t in {*universe, *(h[0] for h in held)}}
+    portfolio = {
+        "cash": cash,
+        "positions": {t: {"shares": int(sh)} for t, sh, _ in held},
+        # Book value at cost: live prices are only fetched inside the pipeline.
+        "total_value": cash + sum(sh * cost * rates[t] for t, sh, cost in held),
+        "fx_to_base": rates,
+        "base_currency": base_ccy,
+    }
 
     # 2) Run the deterministic pipeline (outside any DB transaction).
     result = await run_pipeline(
         universe, personas=personas, portfolio=portfolio, cache=cache,
         write_memo=write_memo, resolve=True,
     )
-    fx_usdinr = await _fetch_fx_usdinr(cache)
 
     # 3) Persist run + orders + signals + NAV snapshot (one transaction).
     run_id = uuid.uuid4().hex
@@ -84,9 +91,11 @@ async def run_fund(
         session.add(run)
         await session.flush()  # run.id must exist before orders reference it
 
+        nav_base, _, _ = await nav.compute_nav(session, fund, result.current_prices, fx_usdinr)
         executed = await ledger.apply_orders(
             session, fund, result.orders, result.current_prices,
             fx_usdinr=fx_usdinr, run_id=run_id,
+            position_cap_pct=fund.position_cap_pct, nav_base=nav_base,
         )
         for agent_id, sigs in result.signals.items():
             for s in sigs:

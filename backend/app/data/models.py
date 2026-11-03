@@ -158,3 +158,36 @@ class BacktestRow(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+# ── Product: onboarding + model portfolios ──────────────────────────
+
+
+class InvestorProfileRow(Base):
+    """The latest risk-profile quiz result for a fund (one row per fund)."""
+
+    __tablename__ = "investor_profiles"
+
+    fund_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    risk_score: Mapped[float] = mapped_column(Float)
+    profile: Mapped[str] = mapped_column(String(16))
+    summary: Mapped[str] = mapped_column(Text, default="")
+    mandate: Mapped[dict] = mapped_column(JSON, default=dict)
+    answers: Mapped[dict] = mapped_column(JSON, default=dict)
+    applied: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+
+class PortfolioFollow(Base):
+    """A fund following a model portfolio."""
+
+    __tablename__ = "portfolio_follows"
+    __table_args__ = (UniqueConstraint("fund_id", "portfolio_id", name="uq_follow_fund_portfolio"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fund_id: Mapped[str] = mapped_column(String(64), index=True)
+    portfolio_id: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+
+# Engagement tables live in their own module; importing here registers them.from app.data import models_engagement  # noqa: E402,F401

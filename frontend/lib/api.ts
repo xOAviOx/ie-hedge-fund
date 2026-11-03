@@ -21,6 +21,21 @@ import type {
   BacktestRequest,
   BacktestStartResponse,
   BacktestStatus,
+  AlertEvent,
+  AlertRule,
+  AlertRuleIn,
+  ChatResponse,
+  ChatTurn,
+  FollowResult,
+  HealthReport,
+  HoldingInput,
+  InvestorProfile,
+  ModelPortfolio,
+  ProfileRequest,
+  QuizQuestion,
+  ScoreBoard,
+  StrattonScore,
+  WatchlistItem,
 } from './types';
 
 export const API_BASE =
@@ -111,5 +126,61 @@ export const api = {
     run: (body: BacktestRequest) =>
       request<BacktestStartResponse>('/backtest/run', { method: 'POST', body: JSON.stringify(body) }),
     get: (id: string) => request<BacktestStatus>(`/backtest/${encodeURIComponent(id)}`),
+  },
+
+  // stratton score
+  score: {
+    list: (tickers?: string[]) =>
+      request<ScoreBoard>(`/score${qs({ tickers: tickers?.length ? tickers.join(',') : undefined })}`),
+    get: (ticker: string) => request<StrattonScore>(`/score/${encodeURIComponent(ticker)}`),
+  },
+
+  // onboarding
+  onboarding: {
+    questions: () => request<{ questions: QuizQuestion[] }>('/onboarding/questions'),
+    profile: () => request<InvestorProfile | null>('/onboarding/profile'),
+    submit: (body: ProfileRequest) =>
+      request<InvestorProfile>('/onboarding/profile', { method: 'POST', body: JSON.stringify(body) }),
+  },
+
+  // model portfolios
+  portfolios: {
+    list: () => request<{ as_of: string; portfolios: ModelPortfolio[] }>('/portfolios'),
+    get: (id: string) => request<ModelPortfolio>(`/portfolios/${encodeURIComponent(id)}`),
+    follow: (id: string) => request<FollowResult>(`/portfolios/${encodeURIComponent(id)}/follow`, { method: 'POST' }),
+    unfollow: (id: string) =>
+      request<FollowResult>(`/portfolios/${encodeURIComponent(id)}/follow`, { method: 'DELETE' }),
+    apply: (id: string) => request<Fund>(`/portfolios/${encodeURIComponent(id)}/apply`, { method: 'POST' }),
+  },
+
+  // health check
+  healthCheck: {
+    sample: () => request<{ csv: string }>('/health-check/sample'),
+    analyse: (holdings: HoldingInput[]) =>
+      request<HealthReport>('/health-check', { method: 'POST', body: JSON.stringify({ holdings }) }),
+  },
+
+  // chat
+  chat: {
+    ask: (message: string, history: ChatTurn[]) =>
+      request<ChatResponse>('/chat', { method: 'POST', body: JSON.stringify({ message, history }) }),
+    suggestions: () => request<{ suggestions: string[] }>('/chat/suggestions'),
+  },
+
+  // watchlist & alerts
+  watchlist: {
+    list: () => request<{ items: WatchlistItem[] }>('/watchlist'),
+    add: (ticker: string) => request<WatchlistItem>('/watchlist', { method: 'POST', body: JSON.stringify({ ticker }) }),
+    remove: (ticker: string) =>
+      request<{ removed: boolean }>(`/watchlist/${encodeURIComponent(ticker)}`, { method: 'DELETE' }),
+  },
+  alerts: {
+    rules: () => request<{ rules: AlertRule[] }>('/alerts'),
+    create: (body: AlertRuleIn) => request<AlertRule>('/alerts', { method: 'POST', body: JSON.stringify(body) }),
+    remove: (id: number) => request<{ deleted: boolean }>(`/alerts/${id}`, { method: 'DELETE' }),
+    check: () => request<{ checked: number; triggered: AlertEvent[] }>('/alerts/check', { method: 'POST' }),
+    events: (unreadOnly = false, limit = 50) =>
+      request<{ events: AlertEvent[]; unread: number }>(`/alerts/events${qs({ unread_only: unreadOnly, limit })}`),
+    markRead: () => request<{ updated: number }>('/alerts/events/read', { method: 'POST' }),
   },
 };

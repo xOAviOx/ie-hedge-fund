@@ -45,6 +45,19 @@ async def _run_default_fund() -> None:
         await run_fund("local")
     except Exception:  # noqa: BLE001 — a failed run must not kill the scheduler
         logger.exception("Scheduled fund run failed.")
+    await _check_alerts("local")
+
+
+async def _check_alerts(fund_id: str) -> None:
+    try:
+        from app.data.cache import get_market_cache
+        from app.engagement.alerts import check_alerts
+
+        async with async_session_maker() as session:
+            out = await check_alerts(session, fund_id, get_market_cache())
+        logger.info("Alert check: %d rules checked, %d triggered.", out["checked"], len(out["triggered"]))
+    except Exception:  # noqa: BLE001 — alerts are best-effort after a run
+        logger.exception("Scheduled alert check failed.")
 
 
 async def start_scheduler(fund_id: str = "local") -> Optional[AsyncIOScheduler]:

@@ -18,13 +18,29 @@ and every decision is fully auditable.
 
 ---
 
-## The six surfaces
+## Product map
 
-The entire product is exactly six pages, each fully wired to real data.
+Built as the course venture for **ENT 3005 Innovation & Entrepreneurship, BML
+Munjal University**. The landing page (`/`) leads into four groups of pages,
+all wired to real data.
+
+| Group | Page | Route | What it does |
+|---|---|---|---|
+| Fund | **Ask the Fund** | `/chat` | Chat that explains the fund's trades and votes, grounded in the decision store (LLM, with a rules fallback). |
+| Fund | **Model Portfolios** | `/portfolios`, `/portfolios/[id]` | 16 portfolios (12 personas + 4 themes) built live from agent votes; follow or apply one to the fund. |
+| Fund | **Watchlist & Alerts** | `/watchlist` | Price, daily-move, score and consensus-flip alerts, checked after every scheduled run. |
+| Research | **Stratton Score** | `/score` | One 1–10 number per stock from all 18 agents, with the top bull and bear reasons. |
+| Research | **Health Check** | `/health-check` | Paste or upload holdings and get a graded report: concentration, sector tilt, weak or bearish committee views. |
+| Learn | **Risk Profile** | `/onboarding` | 7-question quiz that maps to a fund mandate (personas, position cap, markets). |
+| Learn | **Learn Hub** | `/learn` | 34 short modules on paper trading, each persona's rules, metrics and Indian market regulation. |
+| Learn | **Pricing** | `/pricing` | Free / Pro / Campus / API tiers with a waitlist. |
+| Venture | **Venture section** | `/venture/*` | Problem, innovation, market, sizing, customers, business model, financials, funding, smallcase exemplar, team, business plan, `/venture/pitch` deck and `/venture/poster` A2 poster. |
+
+The original six surfaces:
 
 | # | Surface | Route | What it does |
 |---|---------|-------|--------------|
-| 1 | **Fund Console** | `/` | NAV vs benchmark (NIFTY 50 / S&P 500), live positions & P&L, cash, recent orders, next-run countdown, kill-switch, run-now. |
+| 1 | **Fund Console** | `/console` | NAV vs benchmark (NIFTY 50 / S&P 500), live positions & P&L, cash, recent orders, next-run countdown, kill-switch, run-now. |
 | 2 | **Decision Room** | `/decisions`, `/decisions/[runId]` | The audit trail: every run, the per-ticker agent debate (personas vs analysts, direction, confidence, factors), the PM's orders, and the AI memo as a letter. |
 | 3 | **Research Terminal** | `/research`, `/research/[ticker]` | On-demand deep-dive: candlestick chart, fundamentals, news, and a live pipeline run with an optional AI thesis. |
 | 4 | **Backtest Lab** | `/backtest` | Point-in-time backtest over a historical window — equity curve vs benchmark, metrics, and a trade log. |
@@ -124,7 +140,7 @@ npm run dev                                        # http://localhost:3000
 Or with Docker: `cp .env.example .env && docker compose up --build`.
 Or with Make: `make setup && make backend` (then `make frontend`).
 
-Then open `http://localhost:3000`, and hit **Run now** on the Fund Console to
+Then open `http://localhost:3000/console`, and hit **Run now** on the Fund Console to
 produce the first run — it appears in the Decision Room with signals, orders, a
 NAV snapshot, and (with an LLM key) a memo.
 
